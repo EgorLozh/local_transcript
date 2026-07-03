@@ -5,3 +5,6 @@ pydantic-settings>=2.6.0
 whisperx==3.3.2
 pytorch-lightning>=2.0.1
 huggingface_hub>=0.26.0
+
+# IMPORTANT: whisperx 3.3.2 + pyannote 3.3 require torchaudio < 2.9.
+# Install PyTorch separately from requirements-torch.txt (see README).

@@ -1,0 +1,7 @@
+# Install BEFORE or AFTER requirements.txt — must match your CUDA version.
+# See https://pytorch.org/get-started/locally/
+#
+# CUDA 12.4 example:
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.8.0
+torchaudio==2.8.0

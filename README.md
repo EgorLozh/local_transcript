@@ -41,10 +41,23 @@ source .venv/bin/activate
 
 ### 3. PyTorch с CUDA
 
-Установите PyTorch с поддержкой CUDA с [pytorch.org](https://pytorch.org/get-started/locally/), например:
+**Важно:** для `whisperx==3.3.2` нужны `torch==2.8.0` и `torchaudio==2.8.0`.  
+Версия `torchaudio 2.9+` вызывает ошибку `AudioMetaData`.
 
 ```bash
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+pip install -r requirements-torch.txt
+```
+
+Если у вас другая версия CUDA, подберите индекс на [pytorch.org](https://pytorch.org/get-started/locally/), например:
+
+```bash
+pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu124
+```
+
+Проверка:
+
+```bash
+python -c "import torch, torchaudio; print(torch.__version__, torchaudio.__version__, torch.cuda.is_available())"
 ```
 
 ### 4. Зависимости проекта
@@ -105,6 +118,18 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 - Live-транскрипция: задержка ~3–5 с, не потоковая в реальном времени.
 - Диаризация при записи выполняется **после остановки** — для качества нужен полный контекст аудио.
 - Первый запуск загружает модели Whisper (~3 GB) — может занять время.
+
+## Устранение неполадок
+
+### `AttributeError: module 'torchaudio' has no attribute 'AudioMetaData'`
+
+Установлена несовместимая версия `torchaudio` (обычно 2.9+). Переустановите:
+
+```bash
+pip uninstall torch torchaudio -y
+pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu124
+pip install -r requirements.txt
+```
 
 ## Структура
 
