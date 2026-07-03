@@ -6,7 +6,7 @@
 
 - Запись с микрофона через WebSocket с чанками каждые ~3 секунды
 - Загрузка аудиофайла (mp3, wav, webm, m4a и др. через ffmpeg)
-- Диаризация спикеров (pyannote community-1) — опционально
+- Диаризация спикеров (pyannote 3.1) — опционально
 - Скачивание результата: TXT, JSON, SRT
 
 ## Требования
@@ -77,7 +77,9 @@ pip install -r requirements.txt
 
 ### 5. Модели диаризации (один раз)
 
-1. Примите лицензию: [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+1. Примите лицензии:
+   - [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)
+   - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
 2. Создайте токен: [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
 
 ```bash
@@ -112,7 +114,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 | `COMPUTE_TYPE` | `float16` | `float16` или `int8` (меньше VRAM) |
 | `BATCH_SIZE` | `16` | Размер батча транскрипции |
 | `CHUNK_SEC` | `3.0` | Интервал чанков при записи (сек) |
-| `DIARIZATION_MODEL_PATH` | `./models/pyannote-speaker-diarization-community-1` | Путь к локальной модели |
+| `DIARIZATION_MODEL_PATH` | `./models/pyannote-speaker-diarization-3.1` | Путь к локальной модели |
 
 ## API
 
@@ -146,6 +148,17 @@ pip install -r requirements.txt
 ### `Weights only load failed` / `ListConfig` / `typing.Any`
 
 PyTorch 2.6+ по умолчанию блокирует загрузку чекпоинтов pyannote. В `app/engine.py` это исправлено патчем `torch.load`. Обновите код (`git pull`) и перезапустите сервер.
+
+### `unexpected keyword argument 'plda'` при загрузке диаризации
+
+Модель `community-1` несовместима с `whisperx 3.3` (нужен pyannote 4.x). Скачайте **speaker-diarization-3.1**:
+
+```bash
+export HF_TOKEN="hf_xxx"
+python scripts/download_models.py
+```
+
+В `.env`: `DIARIZATION_MODEL_PATH=./models/pyannote-speaker-diarization-3.1`
 
 ## Структура
 

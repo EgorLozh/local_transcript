@@ -13,11 +13,13 @@ from pathlib import Path
 # Disable Xet before huggingface_hub is imported (avoids hash parse errors on some setups).
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
-MODEL_ID = "pyannote/speaker-diarization-community-1"
-DEFAULT_OUTPUT = Path("models/pyannote-speaker-diarization-community-1")
+# Compatible with whisperx 3.3.2 + pyannote.audio 3.3.x
+# community-1 requires pyannote 4.x (whisperx 3.8+)
+DEFAULT_MODEL_ID = "pyannote/speaker-diarization-3.1"
+DEFAULT_OUTPUT = Path("models/pyannote-speaker-diarization-3.1")
 
 
-def download_with_git_lfs(token: str, output: Path) -> None:
+def download_with_git_lfs(token: str, output: Path, model_id: str) -> None:
     if shutil.which("git") is None:
         raise RuntimeError("git is required. Install: sudo apt install git git-lfs")
 
@@ -28,14 +30,14 @@ def download_with_git_lfs(token: str, output: Path) -> None:
         shutil.rmtree(output)
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    clone_url = f"https://user:{token}@huggingface.co/{MODEL_ID}"
+    clone_url = f"https://user:{token}@huggingface.co/{model_id}"
     subprocess.run(
         ["git", "clone", clone_url, str(output)],
         check=True,
     )
 
 
-def download_with_hub(token: str, output: Path) -> None:
+def download_with_hub(token: str, output: Path, model_id: str) -> None:
     from huggingface_hub import snapshot_download
 
     if output.exists():
@@ -43,7 +45,7 @@ def download_with_hub(token: str, output: Path) -> None:
         shutil.rmtree(output)
 
     snapshot_download(
-        repo_id=MODEL_ID,
+        repo_id=model_id,
         local_dir=str(output),
         token=token,
     )
@@ -67,6 +69,11 @@ def main() -> int:
         help=f"Output directory (default: {DEFAULT_OUTPUT})",
     )
     parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL_ID,
+        help=f"HuggingFace model id (default: {DEFAULT_MODEL_ID})",
+    )
+    parser.add_argument(
         "--method",
         choices=["hub", "git", "auto"],
         default="auto",
@@ -78,7 +85,9 @@ def main() -> int:
     if not token:
         print(
             "Set HF_TOKEN environment variable.\n"
-            "1. Accept license: https://huggingface.co/pyannote/speaker-diarization-community-1\n"
+            "1. Accept licenses:\n"
+            "   https://huggingface.co/pyannote/speaker-diarization-3.1\n"
+            "   https://huggingface.co/pyannote/segmentation-3.0\n"
             "2. Create token: https://huggingface.co/settings/tokens\n"
             "\nExample:\n"
             '  export HF_TOKEN="hf_xxx"\n'
@@ -87,7 +96,7 @@ def main() -> int:
         )
         return 1
 
-    print(f"Downloading {MODEL_ID} -> {args.output}")
+    print(f"Downloading {args.model} -> {args.output}")
     print("HF_HUB_DISABLE_XET=1 (legacy HTTP download)")
 
     methods: list[str]
@@ -101,10 +110,10 @@ def main() -> int:
         try:
             if method == "git":
                 print("Using git lfs...")
-                download_with_git_lfs(token, args.output)
+                download_with_git_lfs(token, args.output, args.model)
             else:
                 print("Using huggingface_hub...")
-                download_with_hub(token, args.output)
+                download_with_hub(token, args.output, args.model)
             verify_download(args.output)
             print("Done. Set DIARIZATION_MODEL_PATH in .env if you used a custom path.")
             return 0
@@ -121,7 +130,7 @@ def main() -> int:
         "Try manually:\n"
         f'  export HF_TOKEN="hf_xxx"\n'
         f"  git lfs install\n"
-        f"  git clone https://user:$HF_TOKEN@huggingface.co/{MODEL_ID} {args.output}",
+        f"  git clone https://user:$HF_TOKEN@huggingface.co/{DEFAULT_MODEL_ID} {DEFAULT_OUTPUT}",
         file=sys.stderr,
     )
     if last_error:

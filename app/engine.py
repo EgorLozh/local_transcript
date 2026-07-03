@@ -125,19 +125,44 @@ class TranscriptionEngine:
 
         if settings.diarization_available:
             diar_path = resolve_diarization_model_path(settings.diarization_model_path)
+            try:
+                import pyannote.audio
+
+                pyannote_ver = getattr(pyannote.audio, "__version__", "unknown")
+            except Exception:
+                pyannote_ver = "unknown"
             _dbg(
                 "F",
                 "engine.py:load",
                 "loading diarization",
-                {"diar_path": diar_path, "exists": Path(diar_path).is_file()},
+                {
+                    "diar_path": diar_path,
+                    "exists": Path(diar_path).is_file(),
+                    "pyannote_version": pyannote_ver,
+                },
             )
             logger.info("Loading diarization model from %s", diar_path)
-            self._diarize_model = whisperx.DiarizationPipeline(
-                model_name=diar_path,
-                use_auth_token=None,
-                device=self.device,
-            )
-            _dbg("F", "engine.py:load", "diarization loaded", {"ok": True})
+            try:
+                self._diarize_model = whisperx.DiarizationPipeline(
+                    model_name=diar_path,
+                    use_auth_token=None,
+                    device=self.device,
+                )
+                _dbg("F", "engine.py:load", "diarization loaded", {"ok": True})
+            except Exception as exc:
+                _dbg(
+                    "H",
+                    "engine.py:load",
+                    "diarization failed",
+                    {"error": str(exc), "error_type": type(exc).__name__},
+                )
+                logger.error(
+                    "Failed to load diarization model (%s). "
+                    "Use pyannote/speaker-diarization-3.1 with whisperx 3.3. "
+                    "community-1 requires whisperx 3.8+ / pyannote 4.x.",
+                    exc,
+                )
+                self._diarize_model = None
         else:
             logger.warning(
                 "Diarization model not found at %s — speaker detection disabled",

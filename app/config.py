@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     compute_type: str = "float16"
     batch_size: int = 16
     chunk_sec: float = 3.0
-    diarization_model_path: str = "./models/pyannote-speaker-diarization-community-1"
+    diarization_model_path: str = "./models/pyannote-speaker-diarization-3.1"
     download_cache_ttl_sec: int = 3600
     host: str = "0.0.0.0"
     port: int = 8000
