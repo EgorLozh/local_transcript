@@ -70,7 +70,7 @@ _patch_torch_load()
 
 import whisperx
 
-from app.config import settings
+from app.config import resolve_diarization_model_path, settings
 
 logger = logging.getLogger(__name__)
 
@@ -124,17 +124,26 @@ class TranscriptionEngine:
         )
 
         if settings.diarization_available:
-            logger.info("Loading diarization model from %s", settings.diarization_model_path)
+            diar_path = resolve_diarization_model_path(settings.diarization_model_path)
+            _dbg(
+                "F",
+                "engine.py:load",
+                "loading diarization",
+                {"diar_path": diar_path, "exists": Path(diar_path).is_file()},
+            )
+            logger.info("Loading diarization model from %s", diar_path)
             self._diarize_model = whisperx.DiarizationPipeline(
-                model_name=settings.diarization_model_path,
+                model_name=diar_path,
                 use_auth_token=None,
                 device=self.device,
             )
+            _dbg("F", "engine.py:load", "diarization loaded", {"ok": True})
         else:
             logger.warning(
                 "Diarization model not found at %s — speaker detection disabled",
                 settings.diarization_model_path,
             )
+        _dbg("G", "engine.py:load", "engine.load complete", {"diarization": self._diarize_model is not None})
 
     def _ensure_align_model(self, language: str) -> None:
         if self._align_model is not None and self._language == language:

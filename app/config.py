@@ -18,7 +18,21 @@ class Settings(BaseSettings):
 
     @property
     def diarization_available(self) -> bool:
-        return Path(self.diarization_model_path).is_dir()
+        path = Path(self.diarization_model_path)
+        if path.is_dir():
+            return (path / "config.yaml").is_file()
+        return path.is_file() and path.suffix in {".yaml", ".yml"}
 
 
 settings = Settings()
+
+
+def resolve_diarization_model_path(path: str) -> str:
+    """pyannote/whisperx need absolute path to config.yaml for offline load."""
+    resolved = Path(path).resolve()
+    if resolved.is_dir():
+        config = resolved / "config.yaml"
+        if not config.is_file():
+            raise FileNotFoundError(f"config.yaml not found in {resolved}")
+        return str(config)
+    return str(resolved)
