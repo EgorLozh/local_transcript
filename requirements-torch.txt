@@ -1,7 +1,11 @@
-# Install BEFORE or AFTER requirements.txt — must match your CUDA version.
-# See https://pytorch.org/get-started/locally/
+# PyTorch wheels depend on CUDA index. Pick ONE block below.
 #
-# CUDA 12.4 example:
+# --- CUDA 12.4 (cu124) — torch 2.8 NOT available, use 2.6 ---
 --extra-index-url https://download.pytorch.org/whl/cu124
-torch==2.8.0
-torchaudio==2.8.0
+torch==2.6.0
+torchaudio==2.6.0
+#
+# --- CUDA 12.6+ (cu126) — for torch 2.8 ---
+# --extra-index-url https://download.pytorch.org/whl/cu126
+# torch==2.8.0
+# torchaudio==2.8.0

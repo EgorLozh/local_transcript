@@ -41,17 +41,26 @@ source .venv/bin/activate
 
 ### 3. PyTorch с CUDA
 
-**Важно:** для `whisperx==3.3.2` нужны `torch==2.8.0` и `torchaudio==2.8.0`.  
-Версия `torchaudio 2.9+` вызывает ошибку `AudioMetaData`.
+**Важно:** `whisperx==3.3.2` не работает с `torchaudio 2.9+` (ошибка `AudioMetaData`).
+
+Сначала проверьте CUDA: `nvidia-smi` (верхний правый угол, например `CUDA Version: 12.4`).
+
+**Если ставили с `cu124`** — там нет torch 2.8, используйте **2.6.0**:
+
+```bash
+pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+```
+
+**Если драйвер CUDA 12.6+** — можно torch 2.8:
+
+```bash
+pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126
+```
+
+Или одной командой (по умолчанию cu124 / torch 2.6):
 
 ```bash
 pip install -r requirements-torch.txt
-```
-
-Если у вас другая версия CUDA, подберите индекс на [pytorch.org](https://pytorch.org/get-started/locally/), например:
-
-```bash
-pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu124
 ```
 
 Проверка:
@@ -127,9 +136,16 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ```bash
 pip uninstall torch torchaudio -y
-pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu124
+# для CUDA 12.4:
+pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+# или для CUDA 12.6+:
+# pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126
 pip install -r requirements.txt
 ```
+
+### `Weights only load failed` / `ListConfig was not an allowed global`
+
+PyTorch 2.6+ по умолчанию блокирует загрузку чекпоинтов pyannote. В проекте это исправлено в `app/engine.py`. Обновите код (`git pull`) и перезапустите сервер.
 
 ## Структура
 

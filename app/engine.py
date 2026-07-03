@@ -3,6 +3,27 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+
+def _patch_torch_safe_globals() -> None:
+    """PyTorch 2.6+ defaults to weights_only=True; pyannote checkpoints need omegaconf types."""
+    import torch
+    import omegaconf.base
+    import omegaconf.dictconfig
+    import omegaconf.listconfig
+
+    torch.serialization.add_safe_globals(
+        [
+            omegaconf.base.ContainerMetadata,
+            omegaconf.base.Metadata,
+            omegaconf.base.Node,
+            omegaconf.listconfig.ListConfig,
+            omegaconf.dictconfig.DictConfig,
+        ]
+    )
+
+
+_patch_torch_safe_globals()
+
 import whisperx
 
 from app.config import settings
