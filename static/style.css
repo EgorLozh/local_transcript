@@ -183,6 +183,16 @@ h1 {
   display: none;
 }
 
+.warning {
+  background: #3d2a14;
+  border: 1px solid #ffb347;
+  color: #ffd9a0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
 footer {
   margin-top: 1rem;
   color: var(--muted);
