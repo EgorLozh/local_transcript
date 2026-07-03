@@ -1,0 +1,233 @@
+import logging
+import tempfile
+from pathlib import Path
+from typing import Any
+
+import whisperx
+
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class TranscriptionEngine:
+    def __init__(self) -> None:
+        self._model = None
+        self._diarize_model = None
+        self._align_model = None
+        self._align_metadata = None
+        self._language: str | None = None
+
+    @property
+    def device(self) -> str:
+        if settings.device == "cuda":
+            import torch
+
+            return "cuda" if torch.cuda.is_available() else "cpu"
+        return settings.device
+
+    @property
+    def diarization_enabled(self) -> bool:
+        return settings.diarization_available
+
+    def load(self) -> None:
+        if self._model is not None:
+            return
+
+        logger.info(
+            "Loading Whisper model %s on %s (%s)",
+            settings.whisper_model,
+            self.device,
+            settings.compute_type,
+        )
+        self._model = whisperx.load_model(
+            settings.whisper_model,
+            self.device,
+            compute_type=settings.compute_type,
+        )
+
+        if settings.diarization_available:
+            logger.info("Loading diarization model from %s", settings.diarization_model_path)
+            self._diarize_model = whisperx.DiarizationPipeline(
+                model_name=settings.diarization_model_path,
+                use_auth_token=None,
+                device=self.device,
+            )
+        else:
+            logger.warning(
+                "Diarization model not found at %s — speaker detection disabled",
+                settings.diarization_model_path,
+            )
+
+    def _ensure_align_model(self, language: str) -> None:
+        if self._align_model is not None and self._language == language:
+            return
+        self._align_model, self._align_metadata = whisperx.load_align_model(
+            language_code=language,
+            device=self.device,
+        )
+        self._language = language
+
+    def _normalize_segments(self, result: dict[str, Any]) -> list[dict[str, Any]]:
+        segments: list[dict[str, Any]] = []
+        for seg in result.get("segments", []):
+            speaker = seg.get("speaker")
+            segments.append(
+                {
+                    "start": float(seg["start"]),
+                    "end": float(seg["end"]),
+                    "text": str(seg["text"]).strip(),
+                    "speaker": speaker,
+                }
+            )
+        return segments
+
+    def _run_diarization(
+        self,
+        audio,
+        result: dict[str, Any],
+        min_speakers: int | None = None,
+        max_speakers: int | None = None,
+    ) -> dict[str, Any]:
+        if self._diarize_model is None:
+            return result
+
+        diarize_segments = self._diarize_model(
+            audio,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
+        )
+        return whisperx.assign_word_speakers(diarize_segments, result)
+
+    def transcribe_file(
+        self,
+        audio_path: str | Path,
+        *,
+        diarize: bool = True,
+        min_speakers: int | None = None,
+        max_speakers: int | None = None,
+    ) -> list[dict[str, Any]]:
+        self.load()
+        audio = whisperx.load_audio(str(audio_path))
+        return self.transcribe_audio(
+            audio,
+            diarize=diarize and self.diarization_enabled,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
+        )
+
+    def transcribe_audio(
+        self,
+        audio,
+        *,
+        diarize: bool = True,
+        min_speakers: int | None = None,
+        max_speakers: int | None = None,
+    ) -> list[dict[str, Any]]:
+        self.load()
+        result = self._model.transcribe(audio, batch_size=settings.batch_size)
+        language = result.get("language") or "en"
+        self._ensure_align_model(language)
+        result = whisperx.align(
+            result["segments"],
+            self._align_model,
+            self._align_metadata,
+            audio,
+            self.device,
+        )
+        if diarize:
+            result = self._run_diarization(
+                audio,
+                result,
+                min_speakers=min_speakers,
+                max_speakers=max_speakers,
+            )
+        return self._normalize_segments(result)
+
+    def transcribe_accumulated(
+        self,
+        audio_bytes: bytes,
+        *,
+        suffix: str = ".webm",
+        after: float = 0.0,
+    ) -> list[dict[str, Any]]:
+        if not audio_bytes:
+            return []
+
+        self.load()
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+
+        try:
+            audio = whisperx.load_audio(tmp_path)
+            result = self._model.transcribe(audio, batch_size=settings.batch_size)
+            segments: list[dict[str, Any]] = []
+            for seg in result.get("segments", []):
+                text = str(seg.get("text", "")).strip()
+                if not text:
+                    continue
+                end = float(seg["end"])
+                if end <= after:
+                    continue
+                segments.append(
+                    {
+                        "start": float(seg["start"]),
+                        "end": end,
+                        "text": text,
+                        "speaker": None,
+                    }
+                )
+            return segments
+        except Exception:
+            logger.exception("Failed to transcribe accumulated audio")
+            return []
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+
+    def transcribe_bytes(
+        self,
+        audio_bytes: bytes,
+        *,
+        suffix: str = ".webm",
+        diarize: bool = True,
+        min_speakers: int | None = None,
+        max_speakers: int | None = None,
+    ) -> list[dict[str, Any]]:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+
+        try:
+            return self.transcribe_file(
+                tmp_path,
+                diarize=diarize,
+                min_speakers=min_speakers,
+                max_speakers=max_speakers,
+            )
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+
+    def status(self) -> dict[str, Any]:
+        cuda_available = False
+        gpu_name: str | None = None
+        try:
+            import torch
+
+            cuda_available = torch.cuda.is_available()
+            if cuda_available:
+                gpu_name = torch.cuda.get_device_name(0)
+        except Exception:
+            pass
+
+        return {
+            "model": settings.whisper_model,
+            "device": self.device,
+            "cuda_available": cuda_available,
+            "gpu_name": gpu_name,
+            "diarization_enabled": self.diarization_enabled,
+            "chunk_sec": settings.chunk_sec,
+        }
+
+
+engine = TranscriptionEngine()

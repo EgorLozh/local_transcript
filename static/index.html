@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local Transcript</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Local Transcript</h1>
+      <p class="subtitle">Локальная транскрипция Whisper на GPU</p>
+    </header>
+
+    <section class="card" id="record-section">
+      <h2>Запись с микрофона</h2>
+      <div class="controls">
+        <button id="btn-start" class="btn primary">Старт</button>
+        <button id="btn-stop" class="btn danger" disabled>Стоп</button>
+        <label class="checkbox">
+          <input type="checkbox" id="record-diarize" checked />
+          Определить спикеров после записи
+        </label>
+      </div>
+      <div class="status-row">
+        <span id="ws-status" class="badge offline">WS: отключено</span>
+        <span id="rec-status" class="badge idle">Запись: нет</span>
+      </div>
+      <div id="live-transcript" class="transcript"></div>
+    </section>
+
+    <section class="card" id="upload-section">
+      <h2>Загрузить файл</h2>
+      <div class="dropzone" id="dropzone">
+        <p>Перетащите аудио сюда или выберите файл</p>
+        <input type="file" id="file-input" accept="audio/*,video/*" hidden />
+        <button type="button" class="btn" id="btn-pick">Выбрать файл</button>
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" id="upload-diarize" checked />
+        Определить спикеров
+      </label>
+      <div id="upload-status" class="hint"></div>
+      <div id="upload-transcript" class="transcript"></div>
+    </section>
+
+    <section class="card hidden" id="download-section">
+      <h2>Скачать результат</h2>
+      <div class="controls">
+        <a id="dl-txt" class="btn" href="#">TXT</a>
+        <a id="dl-json" class="btn" href="#">JSON</a>
+        <a id="dl-srt" class="btn" href="#">SRT</a>
+      </div>
+    </section>
+
+    <footer id="server-status">Загрузка статуса…</footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
