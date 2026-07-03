@@ -143,9 +143,9 @@ pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.
 pip install -r requirements.txt
 ```
 
-### `Weights only load failed` / `ListConfig was not an allowed global`
+### `Weights only load failed` / `ListConfig` / `typing.Any`
 
-PyTorch 2.6+ по умолчанию блокирует загрузку чекпоинтов pyannote. В проекте это исправлено в `app/engine.py`. Обновите код (`git pull`) и перезапустите сервер.
+PyTorch 2.6+ по умолчанию блокирует загрузку чекпоинтов pyannote. В `app/engine.py` это исправлено патчем `torch.load`. Обновите код (`git pull`) и перезапустите сервер.
 
 ## Структура
 

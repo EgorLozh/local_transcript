@@ -4,25 +4,20 @@ from pathlib import Path
 from typing import Any
 
 
-def _patch_torch_safe_globals() -> None:
-    """PyTorch 2.6+ defaults to weights_only=True; pyannote checkpoints need omegaconf types."""
+def _patch_torch_load() -> None:
+    """PyTorch 2.6+ defaults weights_only=True; pyannote/speechbrain checkpoints need False."""
     import torch
-    import omegaconf.base
-    import omegaconf.dictconfig
-    import omegaconf.listconfig
 
-    torch.serialization.add_safe_globals(
-        [
-            omegaconf.base.ContainerMetadata,
-            omegaconf.base.Metadata,
-            omegaconf.base.Node,
-            omegaconf.listconfig.ListConfig,
-            omegaconf.dictconfig.DictConfig,
-        ]
-    )
+    _original_load = torch.load
+
+    def _load(*args, **kwargs):
+        kwargs.setdefault("weights_only", False)
+        return _original_load(*args, **kwargs)
+
+    torch.load = _load  # type: ignore[method-assign]
 
 
-_patch_torch_safe_globals()
+_patch_torch_load()
 
 import whisperx
 
