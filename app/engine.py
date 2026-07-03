@@ -1,7 +1,30 @@
+import json
 import logging
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
+
+_DEBUG_LOG = Path(__file__).resolve().parent.parent / "debug-ede45e.log"
+
+
+def _dbg(hypothesis_id: str, location: str, message: str, data: dict) -> None:
+    # #region agent log
+    entry = {
+        "sessionId": "ede45e",
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    try:
+        with _DEBUG_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+    print(f"DEBUG[{hypothesis_id}] {message} {data}", flush=True)
+    # #endregion
 
 
 def _patch_torch_load() -> None:
@@ -9,12 +32,37 @@ def _patch_torch_load() -> None:
     import torch
 
     _original_load = torch.load
+    _dbg(
+        "B",
+        "engine.py:_patch_torch_load",
+        "patch applied",
+        {"torch_version": torch.__version__, "torch_load_id": id(torch.load)},
+    )
 
     def _load(*args, **kwargs):
+        before = kwargs.get("weights_only", "<missing>")
         kwargs.setdefault("weights_only", False)
+        after_setdefault = kwargs.get("weights_only")
+        _dbg(
+            "A",
+            "engine.py:_load",
+            "torch.load intercepted",
+            {
+                "weights_only_before": str(before),
+                "weights_only_after_setdefault": str(after_setdefault),
+                "kwargs_keys": sorted(kwargs.keys()),
+                "arg0": str(args[0])[:120] if args else None,
+            },
+        )
         return _original_load(*args, **kwargs)
 
     torch.load = _load  # type: ignore[method-assign]
+    _dbg(
+        "D",
+        "engine.py:_patch_torch_load",
+        "torch.load replaced",
+        {"new_torch_load_id": id(torch.load)},
+    )
 
 
 _patch_torch_load()
@@ -50,6 +98,18 @@ class TranscriptionEngine:
         if self._model is not None:
             return
 
+        import torch
+
+        _dbg(
+            "C",
+            "engine.py:load",
+            "engine.load start",
+            {
+                "whisper_model": settings.whisper_model,
+                "device": self.device,
+                "torch_load_id_at_load": id(torch.load),
+            },
+        )
         logger.info(
             "Loading Whisper model %s on %s (%s)",
             settings.whisper_model,
