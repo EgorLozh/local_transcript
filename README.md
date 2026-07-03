@@ -96,53 +96,74 @@ $env:HF_TOKEN="hf_xxx"; python scripts/download_models.py
 
 ## Запуск
 
+**Один раз — всё включая HTTPS для микрофона:**
+
 ```bash
-cp .env.example .env   # Windows: copy .env.example .env
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+cp .env.example .env
+bash start.sh
 ```
 
-Откройте в браузере: `http://localhost:8000`
+Откройте в браузере адрес из вывода (например `https://192.168.0.50:8003`).  
+При первом заходе: **«Дополнительно» → «Перейти на сайт»** — один раз на каждом устройстве.  
+После этого микрофон работает.
 
-Для доступа с другой машины: `http://<ip-сервера>:8000`
+Без HTTPS (только загрузка файлов, без микрофона с других ПК):
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8003
+```
 
 ## HTTPS без nginx (для микрофона с другого компьютера)
 
-Браузер разрешает микрофон только на `https://` или `http://localhost`.  
-Самый простой вариант — **самоподписанный сертификат + uvicorn**:
+Браузер разрешает микрофон только на `https://` или `http://localhost`.
+
+### Вариант A: доверенный HTTPS для всей LAN (рекомендуется)
+
+Создаётся **локальный CA**. Файл `ca.pem` один раз ставится на каждый компьютер/телефон в сети — после этого HTTPS без предупреждений.
 
 ```bash
-# 1. Узнайте IP сервера
+# Несколько IP через запятую (Wi‑Fi, Ethernet, и т.д.)
 hostname -I
 
-# 2. Сгенерируйте сертификат (подставьте IP, например 192.168.0.50)
-bash scripts/generate_ssl.sh ./certs egor-server 192.168.0.50
+bash scripts/generate_lan_ca.sh ./certs egor-server 192.168.0.50,192.168.1.50
 
-# 3. Запуск с HTTPS
 uvicorn app.main:app --host 0.0.0.0 --port 8003 \
   --ssl-keyfile=./certs/key.pem --ssl-certfile=./certs/cert.pem
-
-# или коротко:
-bash scripts/run_https.sh
 ```
 
-Откройте: `https://192.168.0.50:8003`
+**На каждом клиенте в LAN** установите `./certs/ca.pem` как доверенный корневой CA:
 
-При первом заходе браузер покажет предупреждение — это нормально для self-signed:
-- **Chrome:** «Дополнительно» → «Перейти на сайт»
-- **Firefox:** «Дополнительно» → «Принять риск и продолжить»
+| ОС | Действие |
+|----|----------|
+| **Windows** | `ca.pem` → переименовать в `ca.crt` → двойной клик → «Локальный компьютер» → «Доверенные корневые центры» |
+| **macOS** | `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain certs/ca.pem` |
+| **Linux** | `sudo cp certs/ca.pem /usr/local/share/ca-certificates/local-transcript-ca.crt && sudo update-ca-certificates` |
 
-### Без предупреждения браузера (mkcert, опционально)
+Опционально на всех ПК в `/etc/hosts` (Windows: `C:\Windows\System32\drivers\etc\hosts`):
+
+```
+192.168.0.50  transcript.lan egor-server
+```
+
+Открывайте: `https://transcript.lan:8003` или `https://192.168.0.50:8003`
+
+### Вариант B: быстрый self-signed (с предупреждением браузера)
 
 ```bash
-sudo apt install libnss3-tools
-curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-chmod +x mkcert-v*-linux-amd64
-sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
-mkcert -install
-mkcert -cert-file certs/cert.pem -key-file certs/key.pem 192.168.0.50 localhost egor-server
+bash scripts/generate_ssl.sh ./certs egor-server 192.168.0.50
 ```
 
-После `mkcert -install` сертификат доверенный на машинах, где установлен CA mkcert.
+При первом заходе: «Дополнительно» → «Перейти на сайт».
+
+### mkcert (альтернатива)
+
+```bash
+mkcert -install
+mkcert -cert-file certs/cert.pem -key-file certs/key.pem \
+  localhost 127.0.0.1 egor-server transcript.lan 192.168.0.50
+```
+
+CA mkcert нужно установить на **каждой** машине (`mkcert -install` или экспорт root CA).
 
 ## Конфигурация (.env)
 
