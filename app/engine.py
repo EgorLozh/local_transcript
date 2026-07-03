@@ -41,15 +41,16 @@ def _patch_torch_load() -> None:
 
     def _load(*args, **kwargs):
         before = kwargs.get("weights_only", "<missing>")
-        kwargs.setdefault("weights_only", False)
-        after_setdefault = kwargs.get("weights_only")
+        if kwargs.get("weights_only") is not False:
+            kwargs["weights_only"] = False
+        after = kwargs.get("weights_only")
         _dbg(
             "A",
             "engine.py:_load",
             "torch.load intercepted",
             {
                 "weights_only_before": str(before),
-                "weights_only_after_setdefault": str(after_setdefault),
+                "weights_only_after_force": str(after),
                 "kwargs_keys": sorted(kwargs.keys()),
                 "arg0": str(args[0])[:120] if args else None,
             },
