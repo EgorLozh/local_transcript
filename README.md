@@ -105,6 +105,45 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 Для доступа с другой машины: `http://<ip-сервера>:8000`
 
+## HTTPS без nginx (для микрофона с другого компьютера)
+
+Браузер разрешает микрофон только на `https://` или `http://localhost`.  
+Самый простой вариант — **самоподписанный сертификат + uvicorn**:
+
+```bash
+# 1. Узнайте IP сервера
+hostname -I
+
+# 2. Сгенерируйте сертификат (подставьте IP, например 192.168.0.50)
+bash scripts/generate_ssl.sh ./certs egor-server 192.168.0.50
+
+# 3. Запуск с HTTPS
+uvicorn app.main:app --host 0.0.0.0 --port 8003 \
+  --ssl-keyfile=./certs/key.pem --ssl-certfile=./certs/cert.pem
+
+# или коротко:
+bash scripts/run_https.sh
+```
+
+Откройте: `https://192.168.0.50:8003`
+
+При первом заходе браузер покажет предупреждение — это нормально для self-signed:
+- **Chrome:** «Дополнительно» → «Перейти на сайт»
+- **Firefox:** «Дополнительно» → «Принять риск и продолжить»
+
+### Без предупреждения браузера (mkcert, опционально)
+
+```bash
+sudo apt install libnss3-tools
+curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+chmod +x mkcert-v*-linux-amd64
+sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+mkcert -install
+mkcert -cert-file certs/cert.pem -key-file certs/key.pem 192.168.0.50 localhost egor-server
+```
+
+После `mkcert -install` сертификат доверенный на машинах, где установлен CA mkcert.
+
 ## Конфигурация (.env)
 
 | Переменная | По умолчанию | Описание |

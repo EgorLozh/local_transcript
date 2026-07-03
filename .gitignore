@@ -7,6 +7,8 @@ __pycache__/
 dist/
 build/
 models/
+certs/
+*.pem
 *.wav
 *.webm
 *.mp3
